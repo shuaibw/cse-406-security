@@ -38,12 +38,19 @@ inv_sbox = (
 
 
 def to_hex(state):
-    return tuple(map(lambda x: hex(x)[2:].upper().zfill(2), state))
+    """
+    state: list of integers
+    """
+    return [hex(s)[2:].upper().zfill(2) for s in state]
 
 
 def g(state, round_key):
+    """
+    state: tuple of 4 integers between 0 and 255
+    round_key: AES round key for key expansion
+    """
     temp = state[1:] + state[:1]
-    temp = list(map(lambda x: sbox[x], temp))
+    temp = [sbox[t] for t in temp]
     temp[0] = temp[0] ^ round_key
     return temp
 
@@ -54,21 +61,6 @@ def sub_bytes(state):
     returns: substituted values for each integer in state
     """
     return
-
-
-def chunk_text(text: str):
-    """
-    text: string of ASCII characters, 1 byte each
-    returns: list of 16 byte chunks
-    """
-    chunks = []
-    for i in range(0, len(text), 16):
-        if i+16 > len(text):
-            chunks.append(text[i:] + (16 - (len(text) - i)) * " ")
-        else:
-            chunks.append(text[i:i+16])
-    chunks = list(map(lambda x: [ord(c) for c in x], chunks))
-    return chunks
 
 
 def expand_key(key: str):
@@ -98,4 +90,29 @@ def key_expansion_test(key):
             print(" ".join(to_hex(w[i+j])), end=" ")
         print()
 
-key_expansion_test("Thats my Kung Fu")
+
+def chunk_text(text: str):
+    """
+    text: string of ASCII characters, 1 byte each
+    returns: list of 16 byte chunks
+    """
+    chunks = []
+    for i in range(0, len(text), 16):
+        if i+16 > len(text):
+            chunks.append(text[i:] + (16 - (len(text) - i)) * " ")
+        else:
+            chunks.append(text[i:i+16])
+    chunks = [list(map(ord, c)) for c in chunks]
+    return chunks
+
+
+def to_matrix(state):
+    """
+    state: list of 16 integers between 0 and 255
+    returns: 4x4 matrix of integers between 0 and 255
+    """
+    matrix = []
+    for i in range(0, len(state), 4):
+        matrix.append(state[i:i+4])
+    matrix = list(map(list, zip(*matrix))) # transpose
+    return matrix
