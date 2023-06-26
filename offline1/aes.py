@@ -1,3 +1,27 @@
+from BitVector import *
+AES_modulus = BitVector(bitstring='100011011')
+ROUNDS = 10
+mixer = [
+    [BitVector(hexstring="02"), BitVector(hexstring="03"),
+     BitVector(hexstring="01"), BitVector(hexstring="01")],
+    [BitVector(hexstring="01"), BitVector(hexstring="02"),
+     BitVector(hexstring="03"), BitVector(hexstring="01")],
+    [BitVector(hexstring="01"), BitVector(hexstring="01"),
+     BitVector(hexstring="02"), BitVector(hexstring="03")],
+    [BitVector(hexstring="03"), BitVector(hexstring="01"),
+     BitVector(hexstring="01"), BitVector(hexstring="02")]
+]
+
+inv_mixer = [
+    [BitVector(hexstring="0E"), BitVector(hexstring="0B"),
+     BitVector(hexstring="0D"), BitVector(hexstring="09")],
+    [BitVector(hexstring="09"), BitVector(hexstring="0E"),
+     BitVector(hexstring="0B"), BitVector(hexstring="0D")],
+    [BitVector(hexstring="0D"), BitVector(hexstring="09"),
+     BitVector(hexstring="0E"), BitVector(hexstring="0B")],
+    [BitVector(hexstring="0B"), BitVector(hexstring="0D"),
+     BitVector(hexstring="09"), BitVector(hexstring="0E")]
+]
 sbox = (
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
     0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
@@ -57,10 +81,45 @@ def g(state, round_key):
 
 def sub_bytes(state):
     """
-    state: tuple of integers between 0 and 255
+    state: 4x4 matrix of integers between 0 and 255
     returns: substituted values for each integer in state
     """
-    return
+    return [[sbox[i] for i in s] for s in state]
+
+
+def shift_rows(state):
+    """
+    state: 4x4 matrix of integers between 0 and 255
+    returns: cyclically left shifted rows as per AES specification
+    """
+    return [s[i:] + s[:i] for i, s in enumerate(state)]
+
+
+def xor(state, round_key):
+    """
+    state: 4x4 matrix of integers between 0 and 255
+    round_key: 4x4 matrix of key for current round
+    returns: element-wise XOR of state and round_key
+    """
+    return [[s ^ r for s, r in zip(s_row, r_row)] for s_row, r_row in zip(state, round_key)]
+
+
+def mix_column(state):
+    """
+    state: 4x4 matrix of integers between 0 and 255
+    round_key: 4x4 matrix of key for current round
+    returns: galois field matrix multiplication of state and round_key
+    """
+    assert len(state) == 4
+    mixed = [[BitVector(intVal=0, size=8) for _ in range(4)]
+             for _ in range(4)]  # 4x4 matrix of 0s
+    state = [[BitVector(intVal=s, size=8) for s in i] for i in state]
+    for i in range(4):
+        for j in range(4):
+            for k in range(4):
+                mixed[i][j] ^= mixer[i][k].gf_multiply_modular(
+                    state[k][j], AES_modulus, 8)
+    return [[int(m) for m in i] for i in mixed]
 
 
 def expand_key(key: str):
@@ -71,7 +130,7 @@ def expand_key(key: str):
     key_bytes = [ord(c) for c in key]
     w = [key_bytes[i:i+4] for i in range(0, len(key_bytes), 4)]
     round_key = 1
-    for i in range(4, 44):
+    for i in range(4, (ROUNDS+1)*4):
         prev = w[i-1]
         if i % 4 == 0:
             prev = g(prev, round_key)
@@ -94,7 +153,7 @@ def key_expansion_test(key):
 def chunk_text(text: str):
     """
     text: string of ASCII characters, 1 byte each
-    returns: list of 16 byte chunks
+    returns: list of 4x4 byte matrix
     """
     chunks = []
     for i in range(0, len(text), 16):
@@ -103,7 +162,11 @@ def chunk_text(text: str):
         else:
             chunks.append(text[i:i+16])
     chunks = [list(map(ord, c)) for c in chunks]
-    return chunks
+    return [to_matrix(c) for c in chunks]
+
+
+def transpose(state):
+    return list(map(list, zip(*state)))
 
 
 def to_matrix(state):
@@ -114,5 +177,46 @@ def to_matrix(state):
     matrix = []
     for i in range(0, len(state), 4):
         matrix.append(state[i:i+4])
-    matrix = list(map(list, zip(*matrix))) # transpose
+    matrix = transpose(matrix)
     return matrix
+
+
+def aes_rounds(states, keys):
+    """
+    states: list of 4x4 matrix of integers between 0 and 255
+    keys: list of 11 expanded keys, each key is a 4x4 matrix
+    """
+    # initial rounds
+    key = transpose(keys[0:4])
+    states = [xor(s, key) for s in states]
+    # mid rounds
+    for i in range(1, ROUNDS):
+        states = [sub_bytes(s) for s in states]
+        states = [shift_rows(s) for s in states]
+        states = [mix_column(s) for s in states]
+        key = transpose(keys[4*i:4*(i+1)])
+        states = [xor(s, key) for s in states]
+    # final round
+    states = [sub_bytes(s) for s in states]
+    states = [shift_rows(s) for s in states]
+    key = transpose(keys[-4:])
+    states = [xor(s, key) for s in states]
+    return states
+
+def aes_encrypt(text: str, key: str):
+    """
+    text: string of ASCII characters, 1 byte each
+    key: string of 16 ASCII characters, 1 byte each
+    returns: list of 16 byte chunks
+    """
+    states = chunk_text(text)
+    keys = expand_key(key)
+    cipher = aes_rounds(states, keys)
+    return [to_hex(row) for matrix in cipher for row in matrix]
+
+
+text = "Two One Nine Two"
+keys = expand_key("Thats my Kung Fu")
+states = chunk_text(text)
+cipher = aes_rounds(states, keys)
+print([to_hex(row) for matrix in cipher for row in matrix])
