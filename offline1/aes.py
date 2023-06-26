@@ -70,7 +70,7 @@ def to_hex(state):
 
 def g(state, round_key):
     """
-    state: tuple of 4 integers between 0 and 255
+    state: tuple of 4 bytes
     round_key: AES round key for key expansion
     """
     temp = state[1:] + state[:1]
@@ -81,7 +81,7 @@ def g(state, round_key):
 
 def sub_bytes(state):
     """
-    state: 4x4 matrix of integers between 0 and 255
+    state: 4x4 matrix of bytes
     returns: substituted values for each integer in state
     """
     return [[sbox[i] for i in s] for s in state]
@@ -89,7 +89,7 @@ def sub_bytes(state):
 
 def shift_rows(state):
     """
-    state: 4x4 matrix of integers between 0 and 255
+    state: 4x4 matrix of bytes
     returns: cyclically left shifted rows as per AES specification
     """
     return [s[i:] + s[:i] for i, s in enumerate(state)]
@@ -97,7 +97,7 @@ def shift_rows(state):
 
 def xor(state, round_key):
     """
-    state: 4x4 matrix of integers between 0 and 255
+    state: 4x4 matrix of bytes
     round_key: 4x4 matrix of key for current round
     returns: element-wise XOR of state and round_key
     """
@@ -106,7 +106,7 @@ def xor(state, round_key):
 
 def mix_column(state):
     """
-    state: 4x4 matrix of integers between 0 and 255
+    state: 4x4 matrix of bytes
     round_key: 4x4 matrix of key for current round
     returns: galois field matrix multiplication of state and round_key
     """
@@ -125,7 +125,7 @@ def mix_column(state):
 def expand_key(key: str):
     """
     key: string of 16 ASCII characters, 1 byte each
-    returns: list of 11 keys, each key is a list of hex numbers between 0x00 and 0xFF
+    returns: list of 11 keys, each key is a 4x4 matrix of bytes
     """
     key_bytes = [ord(c) for c in key]
     w = [key_bytes[i:i+4] for i in range(0, len(key_bytes), 4)]
@@ -171,8 +171,8 @@ def transpose(state):
 
 def to_matrix(state):
     """
-    state: list of 16 integers between 0 and 255
-    returns: 4x4 matrix of integers between 0 and 255
+    state: list of 16 bytes
+    returns: 4x4 matrix of bytes
     """
     matrix = []
     for i in range(0, len(state), 4):
@@ -202,6 +202,7 @@ def aes_rounds(states, keys):
     key = transpose(keys[-4:])
     states = [xor(s, key) for s in states]
     return states
+
 
 def aes_encrypt(text: str, key: str):
     """
