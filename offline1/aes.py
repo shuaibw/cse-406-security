@@ -68,6 +68,16 @@ def to_hex(state):
     return [hex(s)[2:].upper().zfill(2) for s in state]
 
 
+def print_states(states):
+    """
+    states: list of 4x4 matrix of bytes
+    """
+    for matrix in states:
+        for row in transpose(matrix):
+            print(' '.join(to_hex(row)), end=' ')
+        print()
+
+
 def g(state, round_key):
     """
     state: tuple of 4 bytes
@@ -79,7 +89,7 @@ def g(state, round_key):
     return temp
 
 
-def sub_bytes(state):
+def sub_bytes(state, sbox):
     """
     state: 4x4 matrix of bytes
     returns: substituted values for each integer in state
@@ -95,6 +105,14 @@ def shift_rows(state):
     return [s[i:] + s[:i] for i, s in enumerate(state)]
 
 
+def inv_shift_rows(state):
+    """
+    state: 4x4 matrix of bytes
+    returns: cyclically right shifted rows as per AES specification
+    """
+    return [s[-i:] + s[:-i] for i, s in enumerate(state)]
+
+
 def xor(state, round_key):
     """
     state: 4x4 matrix of bytes
@@ -104,7 +122,7 @@ def xor(state, round_key):
     return [[s ^ r for s, r in zip(s_row, r_row)] for s_row, r_row in zip(state, round_key)]
 
 
-def mix_column(state):
+def mix_column(state, mixer):
     """
     state: 4x4 matrix of bytes
     round_key: 4x4 matrix of key for current round
@@ -125,8 +143,9 @@ def mix_column(state):
 def expand_key(key: str):
     """
     key: string of 16 ASCII characters, 1 byte each
-    returns: list of 11 keys, each key is a 4x4 matrix of bytes
+    returns: list of 44 keys, each key is a list of 4 bytes
     """
+    assert len(key) == 16
     key_bytes = [ord(c) for c in key]
     w = [key_bytes[i:i+4] for i in range(0, len(key_bytes), 4)]
     round_key = 1
@@ -142,6 +161,18 @@ def expand_key(key: str):
     return w
 
 
+def reverse_keys(keys):
+    """
+    keys: list of 44 keys, each key is a list of 4 bytes
+    This function groups keys into chunks of 4x4 matrix.
+    Then it reverses the order of that group and flattens it.
+    """
+    keys = [keys[i:i+4] for i in range(0, len(keys), 4)]
+    keys = keys[::-1]
+    keys = [item for sublist in keys for item in sublist]
+    return keys
+
+
 def key_expansion_test(key):
     w = expand_key(key)
     for i in range(0, len(w), 4):
@@ -153,7 +184,7 @@ def key_expansion_test(key):
 def chunk_text(text: str):
     """
     text: string of ASCII characters, 1 byte each
-    returns: list of 4x4 byte matrix
+    returns: list of 4x4 byte matrices
     """
     chunks = []
     for i in range(0, len(text), 16):
@@ -163,6 +194,18 @@ def chunk_text(text: str):
             chunks.append(text[i:i+16])
     chunks = [list(map(ord, c)) for c in chunks]
     return [to_matrix(c) for c in chunks]
+
+
+def dechunk_text(states):
+    """
+    states: list of 4x4 byte matrices
+    """
+    plain = ""
+    for matrix in states:
+        matrix = transpose(matrix)
+        for row in matrix:
+            plain += "".join(map(chr, row))
+    return plain
 
 
 def transpose(state):
@@ -184,40 +227,74 @@ def to_matrix(state):
 def aes_rounds(states, keys):
     """
     states: list of 4x4 matrix of integers between 0 and 255
-    keys: list of 11 expanded keys, each key is a 4x4 matrix
+    keys: list of 44 keys, each key is a list of 4 bytes
     """
-    # initial rounds
+    # initial round
     key = transpose(keys[0:4])
     states = [xor(s, key) for s in states]
     # mid rounds
     for i in range(1, ROUNDS):
-        states = [sub_bytes(s) for s in states]
+        states = [sub_bytes(s, sbox) for s in states]
         states = [shift_rows(s) for s in states]
-        states = [mix_column(s) for s in states]
+        states = [mix_column(s, mixer) for s in states]
         key = transpose(keys[4*i:4*(i+1)])
         states = [xor(s, key) for s in states]
     # final round
-    states = [sub_bytes(s) for s in states]
+    states = [sub_bytes(s, sbox) for s in states]
     states = [shift_rows(s) for s in states]
     key = transpose(keys[-4:])
     states = [xor(s, key) for s in states]
     return states
 
 
-def aes_encrypt(text: str, key: str):
+def inverse_aes_rounds(states, keys):
+    # keys = reverse_keys(keys)
+    # initial round
+    key = transpose(keys[-4:])
+    states = [xor(s, key) for s in states]
+    # mid rounds
+    for i in range(1, ROUNDS):
+        states = [inv_shift_rows(s) for s in states]
+        states = [sub_bytes(s, inv_sbox) for s in states]
+        key = transpose(keys[-4*(i+1):-4*i])
+        states = [xor(s, key) for s in states]
+        states = [mix_column(s, inv_mixer) for s in states]
+    # final round
+    states = [inv_shift_rows(s) for s in states]
+    states = [sub_bytes(s, inv_sbox) for s in states]
+    key = transpose(keys[0:4])
+    states = [xor(s, key) for s in states]
+    return states
+
+
+def aes_encrypt(text, key):
     """
     text: string of ASCII characters, 1 byte each
     key: string of 16 ASCII characters, 1 byte each
-    returns: list of 16 byte chunks
+    returns: list of 4x4 encrypted matrix of bytes
     """
     states = chunk_text(text)
     keys = expand_key(key)
     cipher = aes_rounds(states, keys)
-    return [to_hex(row) for matrix in cipher for row in matrix]
+    return cipher
 
 
-text = "Two One Nine Two"
-keys = expand_key("Thats my Kung Fu")
-states = chunk_text(text)
-cipher = aes_rounds(states, keys)
-print([to_hex(row) for matrix in cipher for row in matrix])
+def aes_decrypt(cipher, key):
+    """
+    cipher: list of 4x4 encrypted matrix of bytes
+    key: string of 16 ASCII characters, 1 byte each
+    returns: deciphered text
+    """
+    keys = expand_key(key)
+    states = inverse_aes_rounds(cipher, keys)
+    plain = dechunk_text(states)
+    return plain
+
+
+if __name__ == "__main__":
+    text = "Two One Nine Two. Thats my King fu"
+    key = "Thats my Kung Fu"
+    cipher = aes_encrypt(text, key)
+    print_states(cipher)
+    plain = aes_decrypt(cipher, key)
+    print(plain)
