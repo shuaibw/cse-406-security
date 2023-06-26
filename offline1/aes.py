@@ -161,18 +161,6 @@ def expand_key(key: str):
     return w
 
 
-def reverse_keys(keys):
-    """
-    keys: list of 44 keys, each key is a list of 4 bytes
-    This function groups keys into chunks of 4x4 matrix.
-    Then it reverses the order of that group and flattens it.
-    """
-    keys = [keys[i:i+4] for i in range(0, len(keys), 4)]
-    keys = keys[::-1]
-    keys = [item for sublist in keys for item in sublist]
-    return keys
-
-
 def key_expansion_test(key):
     w = expand_key(key)
     for i in range(0, len(w), 4):
@@ -248,18 +236,17 @@ def aes_rounds(states, keys):
 
 
 def inverse_aes_rounds(states, keys):
-    # keys = reverse_keys(keys)
-    # initial round
+    # reverse final round
     key = transpose(keys[-4:])
     states = [xor(s, key) for s in states]
-    # mid rounds
+    # reverse mid rounds
     for i in range(1, ROUNDS):
         states = [inv_shift_rows(s) for s in states]
         states = [sub_bytes(s, inv_sbox) for s in states]
         key = transpose(keys[-4*(i+1):-4*i])
         states = [xor(s, key) for s in states]
         states = [mix_column(s, inv_mixer) for s in states]
-    # final round
+    # reverse initial round
     states = [inv_shift_rows(s) for s in states]
     states = [sub_bytes(s, inv_sbox) for s in states]
     key = transpose(keys[0:4])
