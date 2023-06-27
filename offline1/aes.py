@@ -283,9 +283,33 @@ def aes_decrypt(cipher, key):
 
 
 if __name__ == "__main__":
-    text = "Two One Nine Two. Thats my King fu"
-    key = "Thats my Kung Fu"
+    text = "Can They Do This"
+    key = "BUET CSE18 Batch"
+    
+    
+    print('-------------------Demo of independent AES implementation------------------\n')
+    print("Plain text:")
+    print(f"In ASCII: {text}")
+    print(f"In HEX: {text.encode('utf-8').hex()}", end='\n\n')
+    
+
+    print("Key:")
+    print(f"In ASCII: {key}")
+    print(f"In HEX: {key.encode('utf-8').hex()}", end='\n\n')
+    
+
     cipher = aes_encrypt(text, key)
-    print_states(cipher)
+    cipher_hex = ''
+    for matrix in cipher:
+        for row in matrix:
+            cipher_hex += "".join(to_hex(row)).lower()
+    print("Cipher text:")
+    print(f"In HEX: {cipher_hex}")
+    cipher_str = ''.join(map(chr, bytes.fromhex(cipher_hex)))
+    print(f"In ASCII: {cipher_str}", end='\n\n')
+    
+    
     plain = aes_decrypt(cipher, key)
-    print(plain)
+    print("Deciphered text:")
+    print(f"In HEX: {plain.encode('utf-8').hex()}")
+    print(f"In ASCII: {plain}")
