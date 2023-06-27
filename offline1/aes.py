@@ -1,4 +1,5 @@
 from BitVector import *
+import time
 AES_modulus = BitVector(bitstring='100011011')
 ROUNDS = 10
 mixer = [
@@ -282,23 +283,71 @@ def aes_decrypt(cipher, key):
     return plain
 
 
+def aes_encrypt_with_time_details(text, key):
+    """
+    text: string of ASCII characters, 1 byte each
+    key: string of 16 ASCII characters, 1 byte each
+    returns: list of 4x4 encrypted matrix of bytes
+    and time takes for key expansion and encryption
+    """
+    times = {
+        "key_expansion": 0,
+        "encryption": 0
+    }
+    states = chunk_text(text)
+    
+    tick = time.perf_counter_ns()
+    keys = expand_key(key)
+    tock = time.perf_counter_ns()
+    times["key_expansion"] = (tock - tick) / (10 ** 6)
+    
+    tick = time.perf_counter_ns()
+    cipher = aes_rounds(states, keys)
+    tock = time.perf_counter_ns()    
+    times["encryption"] = (tock - tick) / (10 ** 6)
+    
+    return cipher, times
+
+
+def aes_decrypt_with_time_details(cipher, key):
+    """
+    cipher: list of 4x4 encrypted matrix of bytes
+    key: string of 16 ASCII characters, 1 byte each
+    returns: deciphered text and time taken for
+    key expansion and decryption
+    """
+    times = {
+        "key_expansion": 0,
+        "decryption": 0
+    }
+    tick = time.perf_counter_ns()
+    keys = expand_key(key)
+    tock = time.perf_counter_ns()
+    times["key_expansion"] = (tock - tick) / (10 ** 6)
+    
+    tick = time.perf_counter_ns()
+    states = inverse_aes_rounds(cipher, keys)
+    tock = time.perf_counter_ns()
+    times["decryption"] = (tock - tick) / (10 ** 6)
+    
+    plain = dechunk_text(states)
+    return plain, times
+
+
 if __name__ == "__main__":
     text = "Can They Do This"
     key = "BUET CSE18 Batch"
-    
-    
+
     print('-------------------Demo of independent AES implementation------------------\n')
     print("Plain text:")
     print(f"In ASCII: {text}")
     print(f"In HEX: {text.encode('utf-8').hex()}", end='\n\n')
-    
 
     print("Key:")
     print(f"In ASCII: {key}")
     print(f"In HEX: {key.encode('utf-8').hex()}", end='\n\n')
-    
 
-    cipher = aes_encrypt(text, key)
+    cipher, encrypt_times = aes_encrypt_with_time_details(text, key)
     cipher_hex = ''
     for matrix in cipher:
         for row in matrix:
@@ -307,9 +356,14 @@ if __name__ == "__main__":
     print(f"In HEX: {cipher_hex}")
     cipher_str = ''.join(map(chr, bytes.fromhex(cipher_hex)))
     print(f"In ASCII: {cipher_str}", end='\n\n')
-    
-    
-    plain = aes_decrypt(cipher, key)
+
+    plain, decrypt_times = aes_decrypt_with_time_details(cipher, key)
     print("Deciphered text:")
     print(f"In HEX: {plain.encode('utf-8').hex()}")
     print(f"In ASCII: {plain}")
+    
+    print(f'\n-------------------Execution Time details of AES------------------\n')
+    print(f"Key scheduling: {encrypt_times['key_expansion']} ms")
+    print(f"Encryption: {encrypt_times['encryption']} ms")
+    print(f"Decryption: {decrypt_times['decryption']} ms")
+    
