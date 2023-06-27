@@ -1,4 +1,5 @@
 import random
+from util import *
 
 """
 ---------------Diffie-Hellman Key Exchange----------------
@@ -36,11 +37,11 @@ def miller_rabin(n, k=20):  # number of tests to run
         s //= 2
     for _ in range(k):
         a = random.randrange(2, n - 1)
-        x = pow(a, s, n)
+        x = fast_modular_exp(a, s, n)
         if x == 1 or x == n - 1:
             continue
         for _ in range(r - 1):
-            x = pow(x, 2, n)
+            x = fast_modular_exp(x, 2, n)
             if x == n - 1:
                 break
         else:
@@ -68,8 +69,8 @@ def find_primitive_root(p, factors):
         return 1
     phi = p - 1
     while (1):
-        g = random.randint(2, p - 1)
-        flag = all(pow(g, int(phi / f), p) != 1 for f in factors)
+        g = random.randint(2, p - 1) # primitive root candidate
+        flag = all(fast_modular_exp(g, int(phi / f), p) != 1 for f in factors)
         if flag:
             return g
 
@@ -122,7 +123,7 @@ def generate_public_key(modulus, base, private):
     private: secret key for each party
     returns: base^private mod modulus
     """
-    return pow(base, private, modulus)
+    return fast_modular_exp(base, private, modulus)
 
 
 def generate_shared_secret(modulus, public_key, private):
@@ -132,7 +133,7 @@ def generate_shared_secret(modulus, public_key, private):
     private: secret key for each party
     returns: public_key^private mod modulus
     """
-    return pow(public_key, private, modulus)
+    return fast_modular_exp(public_key, private, modulus)
 
 
 if __name__ == '__main__':
