@@ -78,6 +78,28 @@ def print_states(states):
             print(' '.join(to_hex(row)), end=' ')
         print()
 
+def convert_states_to_hex(states):
+    """
+    states: list of 4x4 matrix of bytes
+    returns: hex string of states
+    """
+    hex_string = ''
+    for matrix in states:
+        for row in matrix:
+            hex_string += ''.join(to_hex(row))
+    return hex_string
+
+def convert_hex_to_states(hex_string):
+    """
+    hex_string: string of hex values
+    returns: list of 4x4 matrix of bytes
+    """
+    assert len(hex_string) % 32 == 0
+    states = [hex_string[i:i+8] for i in range(0, len(hex_string), 8)]
+    states = [list(map(lambda x: int(x, 16), [s[i:i+2] for i in range(0, len(s), 2)])) for s in states]
+    states = [states[i:i+4] for i in range(0, len(states), 4)]
+    return states
+    
 
 def g(state, round_key):
     """
@@ -141,13 +163,23 @@ def mix_column(state, mixer):
     return [[int(m) for m in i] for i in mixed]
 
 
-def expand_key(key: str):
+def convert_key_to_bytes(key):
+    if key.__class__.__name__ == 'str':
+        key_bytes = [ord(c) for c in key]
+    elif key.__class__.__name__ == 'int':
+        binary = bin(key)[2:].zfill(128)
+        assert len(binary) == 128
+        key_bytes = [int(binary[i:i+8], 2) for i in range(0, len(binary), 8)]
+    return key_bytes
+
+
+def expand_key(key):
     """
-    key: string of 16 ASCII characters, 1 byte each
+    key: 128 bit key
     returns: list of 44 keys, each key is a list of 4 bytes
     """
-    assert len(key) == 16
-    key_bytes = [ord(c) for c in key]
+    key_bytes = convert_key_to_bytes(key)
+    assert len(key_bytes) == 16
     w = [key_bytes[i:i+4] for i in range(0, len(key_bytes), 4)]
     round_key = 1
     for i in range(4, (ROUNDS+1)*4):
@@ -263,20 +295,21 @@ def aes_encrypt(text, key):
     """
     text: string of ASCII characters, 1 byte each
     key: string of 16 ASCII characters, 1 byte each
-    returns: list of 4x4 encrypted matrix of bytes
+    returns: encrypted hex string
     """
     states = chunk_text(text)
     keys = expand_key(key)
     cipher = aes_rounds(states, keys)
-    return cipher
+    return convert_states_to_hex(cipher)
 
 
 def aes_decrypt(cipher, key):
     """
-    cipher: list of 4x4 encrypted matrix of bytes
+    cipher: encrypted hex string
     key: string of 16 ASCII characters, 1 byte each
     returns: deciphered text
     """
+    cipher = convert_hex_to_states(cipher)
     keys = expand_key(key)
     states = inverse_aes_rounds(cipher, keys)
     plain = dechunk_text(states)
@@ -287,7 +320,7 @@ def aes_encrypt_with_time_details(text, key):
     """
     text: string of ASCII characters, 1 byte each
     key: string of 16 ASCII characters, 1 byte each
-    returns: list of 4x4 encrypted matrix of bytes
+    returns: encrypted hex string
     and time takes for key expansion and encryption
     """
     times = {
@@ -295,27 +328,28 @@ def aes_encrypt_with_time_details(text, key):
         "encryption": 0
     }
     states = chunk_text(text)
-    
+
     tick = time.perf_counter_ns()
     keys = expand_key(key)
     tock = time.perf_counter_ns()
     times["key_expansion"] = (tock - tick) / (10 ** 6)
-    
+
     tick = time.perf_counter_ns()
     cipher = aes_rounds(states, keys)
-    tock = time.perf_counter_ns()    
+    tock = time.perf_counter_ns()
     times["encryption"] = (tock - tick) / (10 ** 6)
-    
-    return cipher, times
+
+    return convert_states_to_hex(cipher), times
 
 
 def aes_decrypt_with_time_details(cipher, key):
     """
-    cipher: list of 4x4 encrypted matrix of bytes
+    cipher: encrypted hex string
     key: string of 16 ASCII characters, 1 byte each
     returns: deciphered text and time taken for
     key expansion and decryption
     """
+    cipher = convert_hex_to_states(cipher)
     times = {
         "key_expansion": 0,
         "decryption": 0
@@ -324,12 +358,12 @@ def aes_decrypt_with_time_details(cipher, key):
     keys = expand_key(key)
     tock = time.perf_counter_ns()
     times["key_expansion"] = (tock - tick) / (10 ** 6)
-    
+
     tick = time.perf_counter_ns()
     states = inverse_aes_rounds(cipher, keys)
     tock = time.perf_counter_ns()
     times["decryption"] = (tock - tick) / (10 ** 6)
-    
+
     plain = dechunk_text(states)
     return plain, times
 
@@ -348,22 +382,17 @@ if __name__ == "__main__":
     print(f"In HEX: {key.encode('utf-8').hex()}", end='\n\n')
 
     cipher, encrypt_times = aes_encrypt_with_time_details(text, key)
-    cipher_hex = ''
-    for matrix in cipher:
-        for row in matrix:
-            cipher_hex += "".join(to_hex(row)).lower()
     print("Cipher text:")
-    print(f"In HEX: {cipher_hex}")
-    cipher_str = ''.join(map(chr, bytes.fromhex(cipher_hex)))
+    print(f"In HEX: {cipher.lower()}")
+    cipher_str = ''.join(map(chr, bytes.fromhex(cipher)))
     print(f"In ASCII: {cipher_str}", end='\n\n')
 
     plain, decrypt_times = aes_decrypt_with_time_details(cipher, key)
     print("Deciphered text:")
     print(f"In HEX: {plain.encode('utf-8').hex()}")
     print(f"In ASCII: {plain}")
-    
+
     print(f'\n-------------------Execution Time details of AES------------------\n')
     print(f"Key scheduling: {encrypt_times['key_expansion']} ms")
     print(f"Encryption: {encrypt_times['encryption']} ms")
     print(f"Decryption: {decrypt_times['decryption']} ms")
-    
