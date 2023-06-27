@@ -23,6 +23,9 @@ Diffie-Hellman key exchange algorithm. This algorithm is not very efficient, but
 it can generate a large prime number in a reasonable amount of time.
 """
 
+MIN = 2**64
+MAX = 2**128
+
 
 def miller_rabin(n, k=20):  # number of tests to run
     if n < 2:
@@ -69,7 +72,7 @@ def find_primitive_root(p, factors):
         return 1
     phi = p - 1
     while (1):
-        g = random.randint(2, p - 1) # primitive root candidate
+        g = random.randint(MIN, MAX)  # primitive root candidate
         flag = all(fast_modular_exp(g, int(phi / f), p) != 1 for f in factors)
         if flag:
             return g
@@ -102,14 +105,17 @@ def find_base_and_modulus(prime_list, key_size, factor_count):
             print("Attempt: ", count)
 
 
-def generate_modulus_and_base(key_size=128, prime_fct_bit=32, samples=1000):
+def generate_modulus_and_base(key_size=128, prime_fct_bit=32, samples=1000, min=2**64, max=2**128):
     """
     key_size: number of bits in the modulus
     prime_fct_bit: number of bits in each prime factor of the modulus
     samples: number of primes of size prime_fct_bit to be generated
     returns: (modulus, base) where modulus is a prime of key_size bits
+    min, max: range of the candidate primitive roots
     and base is a primitive root of modulus
     """
+    MIN = min
+    MAX = max
     prime_list = [generate_large_prime(prime_fct_bit) for _ in range(samples)]
     factor_count = key_size // prime_fct_bit
     modulus, base = find_base_and_modulus(prime_list, key_size, factor_count)
@@ -138,7 +144,7 @@ def generate_shared_secret(modulus, public_key, private):
 
 if __name__ == '__main__':
     modulus, base = generate_modulus_and_base(
-        key_size=128, prime_fct_bit=32, samples=1500)
+        key_size=128, prime_fct_bit=32, samples=1500, min=2**64, max=2**128)
     print("Public Modulus (p):", modulus)
     print("Public Base (g):", base)
     print("Number of bits in p:", modulus.bit_length())
@@ -152,4 +158,3 @@ if __name__ == '__main__':
     receiver_shared_secret = generate_shared_secret(modulus, sender_public, receiver_private)
     print("Sender's shared secret:", sender_shared_secret)
     print("Receiver's shared secret:", receiver_shared_secret)
-    
