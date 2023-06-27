@@ -214,7 +214,7 @@ def to_matrix(state):
 
 def aes_rounds(states, keys):
     """
-    states: list of 4x4 matrix of integers between 0 and 255
+    states: plaintext represented as list of 4x4 byte matrices
     keys: list of 44 keys, each key is a list of 4 bytes
     """
     # initial round
@@ -236,6 +236,10 @@ def aes_rounds(states, keys):
 
 
 def inverse_aes_rounds(states, keys):
+    """
+    states: ciphertext represented as list of 4x4 byte matrices
+    keys: list of 44 keys, each key is a list of 4 bytes
+    """
     # reverse final round
     key = transpose(keys[-4:])
     states = [xor(s, key) for s in states]
