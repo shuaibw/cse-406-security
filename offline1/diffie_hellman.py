@@ -115,6 +115,26 @@ def generate_modulus_and_base(key_size=128, prime_fct_bit=32, samples=1000):
     return modulus, base
 
 
+def generate_public_key(modulus, base, private):
+    """
+    modulus: key_size bit prime number
+    base: primitive root of modulus
+    private: secret key for each party
+    returns: base^private mod modulus
+    """
+    return pow(base, private, modulus)
+
+
+def generate_shared_secret(modulus, public_key, private):
+    """
+    modulus: key_size bit prime number
+    public_key: public key of the other party
+    private: secret key for each party
+    returns: public_key^private mod modulus
+    """
+    return pow(public_key, private, modulus)
+
+
 if __name__ == '__main__':
     modulus, base = generate_modulus_and_base(
         key_size=128, prime_fct_bit=32, samples=1500)
@@ -122,3 +142,13 @@ if __name__ == '__main__':
     print("Public Base (g):", base)
     print("Number of bits in p:", modulus.bit_length())
     print("Number of bits in g:", base.bit_length())
+
+    sender_private = generate_large_prime(128)
+    receiver_private = generate_large_prime(128)
+    sender_public = generate_public_key(modulus, base, sender_private)
+    receiver_public = generate_public_key(modulus, base, receiver_private)
+    sender_shared_secret = generate_shared_secret(modulus, receiver_public, sender_private)
+    receiver_shared_secret = generate_shared_secret(modulus, sender_public, receiver_private)
+    print("Sender's shared secret:", sender_shared_secret)
+    print("Receiver's shared secret:", receiver_shared_secret)
+    
