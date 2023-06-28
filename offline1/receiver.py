@@ -28,6 +28,11 @@ class SenderClient:
         self.secret_key = tk.Entry(master, width=50)
         self.public_key = tk.Entry(master, width=50)
 
+        self.f1 = tk.Frame(master)
+        tk.Label(self.f1, text="Key Size:").pack(side=tk.LEFT, padx=5, pady=5)
+        self.key_size = tk.Entry(self.f1, width=4)
+        self.key_size.pack(side=tk.LEFT, padx=5, pady=5)
+
         self.send_text.grid(row=0, column=1, padx=5, pady=5)
         self.receive_text.grid(row=1, column=1, padx=5, pady=5)
         self.shared_secret.grid(row=2, column=1, padx=5, pady=5)
@@ -35,6 +40,7 @@ class SenderClient:
         self.public_base.grid(row=4, column=1, padx=5, pady=5)
         self.secret_key.grid(row=5, column=1, padx=5, pady=5)
         self.public_key.grid(row=6, column=1, padx=5, pady=5)
+        self.f1.grid(row=1, column=2, padx=5, pady=5)
 
         self.generate_key_button = tk.Button(
             master, text="Generate Secret Key", command=self.generate_key)
@@ -52,6 +58,8 @@ class SenderClient:
         self.send_text_button.grid(row=0, column=2, padx=5, pady=5)
         self.share_public_key_button.grid(row=6, column=2, padx=5, pady=5)
 
+        self.key_size.insert(0, "128")
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(('localhost', 12345))
 
@@ -61,11 +69,15 @@ class SenderClient:
     def generate_key(self):
         # Placeholder function
         self.secret_key.delete(0, tk.END)
-        self.secret_key.insert(0, generate_large_prime(128))
+        bits = int(self.key_size.get())
+        if bits > 128:
+            bits = bits//2
+        self.secret_key.insert(0, generate_large_prime(bits))
 
     def generate_mod_base(self):
         # Placeholder function
-        modulus, base = generate_modulus_and_base()
+        k_sz = int(self.key_size.get())
+        modulus, base = generate_modulus_and_base(key_size=k_sz)
         self.public_modulus.delete(0, tk.END)
         self.public_modulus.insert(0, str(modulus))
         self.public_base.delete(0, tk.END)
