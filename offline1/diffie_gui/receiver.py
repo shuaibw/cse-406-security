@@ -7,7 +7,7 @@ from aes import *
 from diffie_hellman import *
 
 
-class SenderClient:
+class ReceiverCient:
     def __init__(self, master):
         self.master = master
         self.master.title("Receiver Client")
@@ -134,5 +134,5 @@ class SenderClient:
 
 
 root = tk.Tk()
-my_gui = SenderClient(root)
+my_gui = ReceiverCient(root)
 root.mainloop()
