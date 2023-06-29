@@ -1,6 +1,9 @@
 from BitVector import *
 AES_modulus = BitVector(bitstring='100011011')
 ROUNDS = 10
+KEY_SZ = 128
+ROUNDS_DICT = {128: 10, 192: 12, 256: 14}
+ROUNDS = ROUNDS_DICT[KEY_SZ]
 mixer = [
     [BitVector(hexstring="02"), BitVector(hexstring="03"),
      BitVector(hexstring="01"), BitVector(hexstring="01")],
@@ -167,32 +170,42 @@ def mix_column(state, mixer):
 
 def convert_key_to_bytes(key):
     if key.__class__.__name__ == 'str':
+        num_bytes = KEY_SZ // 8
+        key = key.zfill(num_bytes)[:num_bytes]
         key_bytes = [ord(c) for c in key]
     elif key.__class__.__name__ == 'int':
-        binary = bin(key)[2:].zfill(128)[:128]
-        assert len(binary) == 128
+        binary = bin(key)[2:].zfill(KEY_SZ)[:KEY_SZ]
+        assert len(binary) == KEY_SZ
         key_bytes = [int(binary[i:i+8], 2) for i in range(0, len(binary), 8)]
     return key_bytes
 
 
 def expand_key(key):
     """
-    key: 128 bit key
-    returns: list of 44 keys, each key is a list of 4 bytes
+    key: 128 bit key (default)
+    returns: list of 44 keys, each key is a list of 4 bytes (default)
+    details: https://crypto.stackexchange.com/a/2496/109182
     """
     key_bytes = convert_key_to_bytes(key)
-    assert len(key_bytes) == 16
+    assert len(key_bytes) == KEY_SZ // 8
+
+    win_sz = 4 # window size for calculating key blocks
+    if KEY_SZ == 192:
+        win_sz = 6
+    elif KEY_SZ == 256:
+        win_sz = 8
+
     w = [key_bytes[i:i+4] for i in range(0, len(key_bytes), 4)]
     round_key = 1
-    for i in range(4, (ROUNDS+1)*4):
+    for i in range(win_sz, (ROUNDS+1)*4):
         prev = w[i-1]
-        if i % 4 == 0:
+        if i % win_sz == 0:
             prev = g(prev, round_key)
             xor = 0
             if round_key >= 128:
                 xor = int("0x11B", 16)
             round_key = (round_key << 1) ^ xor
-        w.append(list(map(lambda x, y: x ^ y, w[i-4], prev)))
+        w.append(list(map(lambda x, y: x ^ y, w[i-win_sz], prev)))
     return w
 
 
@@ -352,6 +365,7 @@ def aes_decrypt(cipher, key):
 
 
 if __name__ == "__main__":
+    KEY_SZ = 192
     filename = 'aes_sample.pdf'
     key = 'Yellow Submarine'
     cipher = aes_encrypt_file(filename, key)
