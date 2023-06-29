@@ -78,6 +78,7 @@ def print_states(states):
             print(' '.join(to_hex(row)), end=' ')
         print()
 
+
 def convert_states_to_hex(states):
     """
     states: list of 4x4 matrix of bytes
@@ -89,6 +90,7 @@ def convert_states_to_hex(states):
             hex_string += ''.join(to_hex(row))
     return hex_string
 
+
 def convert_hex_to_states(hex_string):
     """
     hex_string: string of hex values
@@ -96,10 +98,11 @@ def convert_hex_to_states(hex_string):
     """
     assert len(hex_string) % 32 == 0
     states = [hex_string[i:i+8] for i in range(0, len(hex_string), 8)]
-    states = [list(map(lambda x: int(x, 16), [s[i:i+2] for i in range(0, len(s), 2)])) for s in states]
+    states = [list(map(lambda x: int(x, 16), [s[i:i+2] for i in range(0, len(s), 2)]))
+              for s in states]
     states = [transpose(states[i:i+4]) for i in range(0, len(states), 4)]
     return states
-    
+
 
 def g(state, round_key):
     """
@@ -165,6 +168,7 @@ def mix_column(state, mixer):
 
 def convert_key_to_bytes(key):
     if key.__class__.__name__ == 'str':
+        key = key.zfill(16)[:16]
         key_bytes = [ord(c) for c in key]
     elif key.__class__.__name__ == 'int':
         binary = bin(key)[2:].zfill(128)[:128]
