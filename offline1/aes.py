@@ -85,7 +85,7 @@ def convert_states_to_hex(states):
     """
     hex_string = ''
     for matrix in states:
-        for row in matrix:
+        for row in transpose(matrix):
             hex_string += ''.join(to_hex(row))
     return hex_string
 
@@ -97,7 +97,7 @@ def convert_hex_to_states(hex_string):
     assert len(hex_string) % 32 == 0
     states = [hex_string[i:i+8] for i in range(0, len(hex_string), 8)]
     states = [list(map(lambda x: int(x, 16), [s[i:i+2] for i in range(0, len(s), 2)])) for s in states]
-    states = [states[i:i+4] for i in range(0, len(states), 4)]
+    states = [transpose(states[i:i+4]) for i in range(0, len(states), 4)]
     return states
     
 
@@ -167,7 +167,7 @@ def convert_key_to_bytes(key):
     if key.__class__.__name__ == 'str':
         key_bytes = [ord(c) for c in key]
     elif key.__class__.__name__ == 'int':
-        binary = bin(key)[2:].zfill(128)
+        binary = bin(key)[2:].zfill(128)[:128]
         assert len(binary) == 128
         key_bytes = [int(binary[i:i+8], 2) for i in range(0, len(binary), 8)]
     return key_bytes
