@@ -15,7 +15,7 @@ class ReceiverCient:
 
         # Add labels
         tk.Label(master, text="Send Text:").grid(row=0, column=0, sticky='e', padx=5, pady=5)
-        tk.Label(master, text="Receive Text:").grid(row=1, column=0, sticky='e', padx=5, pady=5)
+        tk.Label(master, text="Received Text:").grid(row=1, column=0, sticky='e', padx=5, pady=5)
         tk.Label(master, text="Shared secret:").grid(row=2, column=0, sticky='e', padx=5, pady=5)
         tk.Label(master, text="Public Modulus:").grid(row=3, column=0, sticky='e', padx=5, pady=5)
         tk.Label(master, text="Public Base:").grid(row=4, column=0, sticky='e', padx=5, pady=5)
